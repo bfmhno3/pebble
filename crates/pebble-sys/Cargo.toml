@@ -1,0 +1,15 @@
+[package]
+name = "pebble-sys"
+description = "FFI shims: a small C library linked into the Pebble runtime."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[build-dependencies]
+cc.workspace = true
+
+[lints]
+workspace = true
