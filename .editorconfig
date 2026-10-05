@@ -1,0 +1,21 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 4
+
+# Configuration formats read better with two spaces.
+[*.{toml,yml,yaml,json}]
+indent_size = 2
+
+# Markdown uses two trailing spaces for a hard line break.
+[*.md]
+trim_trailing_whitespace = false
+
+# C shim follows the surrounding style.
+[*.{c,h}]
+indent_size = 4

@@ -1,0 +1,21 @@
+# Normalise line endings so the repo behaves the same on every platform.
+* text=auto eol=lf
+
+# Explicit types (helps diffs and stats).
+*.rs text
+*.toml text
+*.lock text
+*.c text
+*.h text
+*.md text
+*.yml text
+*.yaml text
+*.json text
+*.pebble text
+
+# Cargo.lock is committed on purpose for this workspace of binaries; keep it
+# out of merge-conflict churn by treating it as generated.
+Cargo.lock linguist-generated=true
+
+# Nix
+flake.lock linguist-generated=true
