@@ -1,0 +1,32 @@
+[package]
+name = "pebble-bench"
+description = "Backend benchmarks: the tree-walking interpreter versus the bytecode VM."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[lib]
+bench = false
+
+[dependencies]
+pebble-span.workspace = true
+pebble-diag.workspace = true
+pebble-parser.workspace = true
+pebble-value.workspace = true
+pebble-interp.workspace = true
+pebble-bytecode.workspace = true
+pebble-vm.workspace = true
+
+[dev-dependencies]
+criterion.workspace = true
+
+[[bench]]
+name = "backends"
+harness = false
+
+[lints]
+workspace = true
