@@ -1,0 +1,16 @@
+[package]
+name = "pebble-nostd"
+description = "Pebble on bare metal: a no_std evaluator with a bump allocator."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+pebble-span.workspace = true
+pebble-lexer.workspace = true
+
+[lints]
+workspace = true
