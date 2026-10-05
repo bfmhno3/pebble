@@ -1,0 +1,15 @@
+[package]
+name = "pebble-diag"
+description = "Diagnostics, labels, and human-readable rendering for Pebble."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+pebble-span.workspace = true
+
+[lints]
+workspace = true
