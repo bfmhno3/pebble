@@ -1,0 +1,6 @@
+// A deliberately broken program.
+//
+// `pebble run examples/errors.pebble` renders the diagnostic below to stderr
+// and exits with status 1 instead of running anything.
+let total = 1 + ;
+print(total);

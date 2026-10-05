@@ -1,0 +1,19 @@
+// Lists, maps, and `for`.
+let squares = [];
+for i in range(1, 6) {
+    push(squares, i * i);
+}
+print(squares);
+
+let capitals = #{
+    "fr": "Paris",
+    "jp": "Tokyo",
+};
+capitals["de"] = "Berlin";
+
+// Indexing a map with a string key, written out in a fixed order so the
+// output does not depend on the map's internal ordering.
+for country in ["fr", "jp", "de"] {
+    print(country + " -> " + capitals[country]);
+}
+print(len(capitals));

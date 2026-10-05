@@ -1,0 +1,14 @@
+// A closure captures its environment, so the counter's state survives
+// between calls.
+fn make_counter() {
+    let count = 0;
+    return fn() {
+        count = count + 1;
+        return count;
+    };
+}
+
+let next = make_counter();
+print(next());
+print(next());
+print(next());
