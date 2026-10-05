@@ -1,0 +1,17 @@
+[package]
+name = "pebble-gc"
+description = "A mark-sweep garbage collector written with raw pointers and unsafe."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+
+[dev-dependencies]
+rand.workspace = true
+
+[lints]
+workspace = true
