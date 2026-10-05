@@ -1,0 +1,22 @@
+[package]
+name = "pebble-vm"
+description = "A stack-based virtual machine for Pebble bytecode."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+pebble-span.workspace = true
+pebble-diag.workspace = true
+pebble-bytecode.workspace = true
+pebble-gc.workspace = true
+pebble-value.workspace = true
+
+[dev-dependencies]
+pebble-parser.workspace = true
+
+[lints]
+workspace = true
