@@ -1,0 +1,21 @@
+[package]
+name = "pebble-interp"
+description = "A tree-walking interpreter for Pebble."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+pebble-span.workspace = true
+pebble-diag.workspace = true
+pebble-ast.workspace = true
+pebble-value.workspace = true
+
+[dev-dependencies]
+pebble-parser.workspace = true
+
+[lints]
+workspace = true
