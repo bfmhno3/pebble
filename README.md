@@ -3,6 +3,10 @@
 > A small dynamically typed scripting language and toolchain, built from scratch
 > in Rust - and a tour of the Rust language disguised as a compiler.
 
+[![CI](https://github.com/bfmhno3/pebble/actions/workflows/ci.yml/badge.svg)](https://github.com/bfmhno3/pebble/actions/workflows/ci.yml)
+[![License: MIT OR Apache-2.0](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue.svg)](#license)
+[![MSRV: 1.88](https://img.shields.io/badge/MSRV-1.88-blue.svg)](#quick-start)
+
 Pebble has a hand-written lexer, a recursive-descent + precedence-climbing
 parser, a tree-walking interpreter, a bytecode compiler, a stack virtual
 machine, and a hand-written mark-sweep garbage collector. It is split into a
