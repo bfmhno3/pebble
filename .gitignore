@@ -1,0 +1,24 @@
+# Rust build artefacts
+/target
+**/*.rs.bk
+*.pdb
+
+# Cargo registry cache used by the offline/CI profiles
+.cargo/
+
+# Nix / direnv
+.direnv/
+result
+result-*
+
+# Editor / OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
+
+# Criterion bench output
+/criterion/
+
+# Local scratch
+/tmp/
