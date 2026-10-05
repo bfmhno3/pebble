@@ -1,0 +1,23 @@
+[package]
+name = "pebble-net"
+description = "An asynchronous remote evaluator for Pebble, built on Tokio."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+pebble-span.workspace = true
+pebble-diag.workspace = true
+pebble-ast.workspace = true
+pebble-parser.workspace = true
+pebble-value.workspace = true
+pebble-interp.workspace = true
+bytes.workspace = true
+futures.workspace = true
+tokio.workspace = true
+
+[lints]
+workspace = true
