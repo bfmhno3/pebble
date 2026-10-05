@@ -1,0 +1,21 @@
+[package]
+name = "pebble-bytecode"
+description = "Bytecode chunks, opcodes, and the Pebble compiler front-to-back end."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+pebble-span.workspace = true
+pebble-diag.workspace = true
+pebble-ast.workspace = true
+pebble-macros.workspace = true
+
+[dev-dependencies]
+pebble-parser.workspace = true
+
+[lints]
+workspace = true
