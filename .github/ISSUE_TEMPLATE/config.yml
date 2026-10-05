@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Architecture guide
+    url: https://github.com/bfmhno3/pebble/blob/main/docs/ARCHITECTURE.md
+    about: How the crates fit together and how to add a language feature.
+  - name: Contributing guide
+    url: https://github.com/bfmhno3/pebble/blob/main/CONTRIBUTING.md
+    about: Toolchain setup, checks to run, and commit conventions.

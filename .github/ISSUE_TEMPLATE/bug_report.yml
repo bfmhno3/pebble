@@ -1,0 +1,43 @@
+name: Bug report
+description: Report a crash, a wrong result, or a confusing diagnostic.
+title: "bug: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. A minimal Pebble program plus the exact command
+        you ran makes this much faster to fix.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: Also describe what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction
+      description: The Pebble source, the command, and the observed output.
+      render: shell
+    validations:
+      required: true
+  - type: dropdown
+    id: backend
+    attributes:
+      label: Backend
+      options:
+        - tree-walking interpreter
+        - bytecode VM
+        - both
+        - not sure
+    validations:
+      required: true
+  - type: input
+    id: revision
+    attributes:
+      label: Revision
+      description: The commit or release you built from.
+    validations:
+      required: true
