@@ -17,8 +17,8 @@ use core::cell::UnsafeCell;
 use core::ptr;
 use core::sync::atomic::{AtomicUsize, Ordering};
 
-/// The size in bytes of the arena each [`BumpAllocator`] owns.
-pub const HEAP_SIZE: usize = 4096;
+/// The arena size, in bytes, of a [`BumpAllocator`] that does not name one.
+pub const DEFAULT_HEAP_SIZE: usize = 4096;
 
 /// The mutable cursor of a bump allocator.
 ///
@@ -31,8 +31,8 @@ struct BumpState {
 
 /// A [`GlobalAlloc`] that bumps a cursor through a fixed-size static arena.
 ///
-/// Each instance owns [`HEAP_SIZE`] bytes inline, which is what makes it usable
-/// as a `static` without a separate `static mut` buffer:
+/// Each instance owns `N` bytes inline (4096 unless you say otherwise), which
+/// is what makes it usable as a `static` without a separate `static mut` buffer:
 ///
 /// ```
 /// use pebble_nostd::bump::BumpAllocator;
@@ -43,18 +43,18 @@ struct BumpState {
 /// Allocation is lock-free: concurrent callers race on the cursor with a
 /// compare-exchange loop, and whoever wins reserves its slice exclusively.
 /// Exhaustion is reported as a null pointer, as [`GlobalAlloc`] requires.
-pub struct BumpAllocator {
+pub struct BumpAllocator<const N: usize = DEFAULT_HEAP_SIZE> {
     state: UnsafeCell<BumpState>,
-    heap: UnsafeCell<[u8; HEAP_SIZE]>,
+    heap: UnsafeCell<[u8; N]>,
 }
 
 // SAFETY: the only shared state that is ever mutated is the atomic cursor, so
 // racing `alloc` calls are well defined. Two successful allocations never
 // overlap, because the atomic update reserves each slice before it is handed
 // out; the caller of `alloc` receives a pointer it is free to write through.
-unsafe impl Sync for BumpAllocator {}
+unsafe impl<const N: usize> Sync for BumpAllocator<N> {}
 
-impl BumpAllocator {
+impl<const N: usize> BumpAllocator<N> {
     /// Creates an allocator whose entire arena is free.
     #[must_use]
     pub const fn new() -> Self {
@@ -62,7 +62,7 @@ impl BumpAllocator {
             state: UnsafeCell::new(BumpState {
                 used: AtomicUsize::new(0),
             }),
-            heap: UnsafeCell::new([0; HEAP_SIZE]),
+            heap: UnsafeCell::new([0; N]),
         }
     }
 
@@ -79,13 +79,19 @@ impl BumpAllocator {
         state.used.load(Ordering::Relaxed)
     }
 
+    /// The size in bytes of the arena: the const parameter `N`.
+    #[must_use]
+    pub const fn capacity(&self) -> usize {
+        N
+    }
+
     /// Address of the first byte of the arena.
     fn base(&self) -> usize {
         self.heap.get().cast::<u8>() as usize
     }
 }
 
-impl Default for BumpAllocator {
+impl<const N: usize> Default for BumpAllocator<N> {
     fn default() -> Self {
         Self::new()
     }
@@ -96,9 +102,9 @@ impl Default for BumpAllocator {
 // - `alloc` returns null on exhaustion and otherwise a pointer aligned to
 //   `layout.align()` that is not aliased by any other live allocation.
 // - The returned pointer is valid for writes of `layout.size()` bytes, since the
-//   arena is an owned `[u8; HEAP_SIZE]` and the cursor stays within it.
+//   arena is an owned `[u8; N]` and the cursor stays within it.
 // - `dealloc` is a no-op, which is permitted: freeing is optional.
-unsafe impl GlobalAlloc for BumpAllocator {
+unsafe impl<const N: usize> GlobalAlloc for BumpAllocator<N> {
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
         let base = self.base();
         let align = layout.align();
@@ -118,7 +124,7 @@ unsafe impl GlobalAlloc for BumpAllocator {
                 let aligned = cursor.checked_add(align - 1)? & !(align - 1);
                 let offset = aligned - base;
                 let end = offset.checked_add(size)?;
-                (end <= HEAP_SIZE).then_some(end)
+                (end <= N).then_some(end)
             });
 
         match reserved {
@@ -144,7 +150,7 @@ unsafe impl GlobalAlloc for BumpAllocator {
 
 #[cfg(test)]
 mod tests {
-    use super::{BumpAllocator, HEAP_SIZE};
+    use super::{BumpAllocator, DEFAULT_HEAP_SIZE};
     use core::alloc::{GlobalAlloc, Layout};
 
     static ALLOC: BumpAllocator = BumpAllocator::new();
@@ -170,7 +176,7 @@ mod tests {
     #[test]
     fn exhaustion_returns_null() {
         // A fresh allocator so this test cannot be perturbed by the other one.
-        static SMALL: BumpAllocator = BumpAllocator::new();
+        static SMALL: BumpAllocator<64> = BumpAllocator::new();
         let mut handed_out = 0;
         loop {
             // SAFETY: `Layout::new::<u8>()` is valid; the returned pointer is
@@ -180,10 +186,10 @@ mod tests {
                 break;
             }
             handed_out += 1;
-            assert!(handed_out <= HEAP_SIZE, "allocator overran its arena");
+            assert!(handed_out <= 64, "allocator overran its arena");
         }
-        assert_eq!(handed_out, HEAP_SIZE, "one byte at a time fills the arena");
-        assert_eq!(SMALL.bytes_used(), HEAP_SIZE);
+        assert_eq!(handed_out, 64, "one byte at a time fills the arena");
+        assert_eq!(SMALL.bytes_used(), 64);
     }
 
     #[test]
@@ -196,5 +202,12 @@ mod tests {
         let used = HEAP.bytes_used();
         unsafe { HEAP.dealloc(p, Layout::new::<u64>()) };
         assert_eq!(HEAP.bytes_used(), used, "dealloc must not move the cursor");
+    }
+
+    #[test]
+    fn capacity_is_the_const_parameter() {
+        assert_eq!(BumpAllocator::<128>::new().capacity(), 128);
+        let default: BumpAllocator = BumpAllocator::new();
+        assert_eq!(default.capacity(), DEFAULT_HEAP_SIZE);
     }
 }
