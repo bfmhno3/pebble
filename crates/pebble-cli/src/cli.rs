@@ -23,6 +23,7 @@ pub(crate) enum Command {
     /// Execute a source file on the tree-walker or the bytecode VM.
     Run(RunArgs),
     /// Start an interactive read-eval-print loop.
+    #[cfg(feature = "repl")]
     Repl,
     /// Print the token stream of a source file.
     Tokens(FileArgs),

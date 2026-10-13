@@ -13,6 +13,7 @@
 mod backend;
 mod cli;
 mod commands;
+#[cfg(feature = "repl")]
 mod repl;
 mod sources;
 
@@ -26,6 +27,7 @@ fn main() -> ExitCode {
     let cli = Cli::parse();
     let result = match cli.command {
         Command::Run(args) => commands::run(&args),
+        #[cfg(feature = "repl")]
         Command::Repl => repl::run(),
         Command::Tokens(args) => commands::tokens(&args),
         Command::Parse(args) => commands::parse(&args),

@@ -24,7 +24,12 @@ pebble-bytecode.workspace = true
 pebble-vm.workspace = true
 anyhow.workspace = true
 clap.workspace = true
-rustyline.workspace = true
+rustyline = { workspace = true, optional = true }
+
+[features]
+default = ["repl"]
+# The interactive `pebble repl` subcommand (pulls in the line editor).
+repl = ["dep:rustyline"]
 
 [dev-dependencies]
 assert_cmd = "2"
