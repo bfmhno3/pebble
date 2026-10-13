@@ -35,6 +35,7 @@
 
 use std::any::Any;
 use std::ffi::c_void;
+use std::marker::{PhantomData, PhantomPinned};
 use std::ops::RangeInclusive;
 use std::panic::{AssertUnwindSafe, catch_unwind, resume_unwind};
 use std::ptr::NonNull;
@@ -45,10 +46,15 @@ use std::slice;
 /// The layout is deliberately unknown: Rust only ever names this type inside a
 /// pointer, and the C side of the header is the single source of truth for what
 /// it actually contains.
+///
+/// The marker follows the Rustonomicon's pattern for opaque FFI types: the raw
+/// pointer makes the type `!Send` and `!Sync`, and `PhantomPinned` makes it
+/// `!Unpin`, so safe code can never move or share it by accident.
 #[repr(C)]
 struct PebbleArena {
     /// Makes the type impossible to construct in Rust.
-    _opaque: [u8; 0],
+    _data: [u8; 0],
+    _marker: PhantomData<(*mut u8, PhantomPinned)>,
 }
 
 /// The callback signature `pebble_fold` calls for every value.
