@@ -388,9 +388,7 @@ impl Interpreter {
                         ),
                     ));
                 }
-                self.enter(span)?;
-                let result = self.run_function(&function, args);
-                self.depth -= 1;
+                let result = self.with_call_depth(span, |this| this.run_function(&function, args));
                 result.map_err(|error| error.with_frame(function.display_name(), span))
             }
             other => Err(RuntimeError::new(
@@ -421,7 +419,12 @@ impl Interpreter {
         }
     }
 
-    fn enter(&mut self, span: Span) -> Result<(), RuntimeError> {
+    /// Runs `body` one call level deeper, failing first if that would exceed the limit.
+    fn with_call_depth<T>(
+        &mut self,
+        span: Span,
+        body: impl FnOnce(&mut Self) -> Result<T, RuntimeError>,
+    ) -> Result<T, RuntimeError> {
         if self.depth >= self.max_depth {
             return Err(RuntimeError::new(
                 span,
@@ -429,7 +432,9 @@ impl Interpreter {
             ));
         }
         self.depth += 1;
-        Ok(())
+        let result = body(self);
+        self.depth -= 1;
+        result
     }
 }
 
