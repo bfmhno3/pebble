@@ -10,6 +10,7 @@
 
 #![forbid(unsafe_code)]
 
+mod backend;
 mod cli;
 mod commands;
 mod repl;

@@ -8,13 +8,12 @@ use std::time::{Duration, Instant};
 
 use anyhow::Result;
 use pebble_ast::{Program, pretty};
-use pebble_bytecode::{Compiled, compile};
-use pebble_interp::Interpreter;
+use pebble_bytecode::compile;
 use pebble_lexer::tokenize;
 use pebble_parser::parse as parse_program;
-use pebble_value::Buffer;
-use pebble_vm::Vm;
+use pebble_value::{Buffer, Stdout};
 
+use crate::backend::{Backend, BytecodeVm, TreeWalker};
 use crate::cli::{BenchArgs, FileArgs, RunArgs};
 use crate::sources::{self, Source};
 
@@ -33,24 +32,26 @@ pub(crate) fn run(args: &RunArgs) -> Result<u8> {
         print!("{}", pretty(&parsed.program));
     }
 
-    let mut compiled = None;
-    if args.vm || args.dump_bytecode {
-        let result = compile(&parsed.program);
-        if sources::emit(&result.diagnostics, &source.map) {
+    if args.vm {
+        let Some(prepared) = prepare_or_report::<BytecodeVm>(&parsed.program, &source) else {
             return Ok(1);
-        }
+        };
         if args.dump_bytecode {
-            print!("{}", result.compiled.chunk().disassemble());
+            print!("{}", prepared.chunk().disassemble());
         }
-        compiled = Some(result.compiled);
+        return Ok(execute::<BytecodeVm>(&prepared, &source, args.quiet));
     }
 
-    if args.vm {
-        let compiled = compiled.expect("`--vm` compiles the program first");
-        Ok(run_vm(&compiled, &source, args.quiet))
-    } else {
-        Ok(run_interpreter(&parsed.program, &source, args.quiet))
+    if args.dump_bytecode {
+        let Some(prepared) = prepare_or_report::<BytecodeVm>(&parsed.program, &source) else {
+            return Ok(1);
+        };
+        print!("{}", prepared.chunk().disassemble());
     }
+    let Some(prepared) = prepare_or_report::<TreeWalker>(&parsed.program, &source) else {
+        return Ok(1);
+    };
+    Ok(execute::<TreeWalker>(&prepared, &source, args.quiet))
 }
 
 /// `pebble tokens`: one `line:col kind` line per token.
@@ -107,57 +108,50 @@ pub(crate) fn bench(args: &BenchArgs) -> Result<u8> {
     if sources::emit(&parsed.diagnostics, &source.map) {
         return Ok(1);
     }
-    let compiled = compile(&parsed.program);
-    if sources::emit(&compiled.diagnostics, &source.map) {
+    let Some(tree) = prepare_or_report::<TreeWalker>(&parsed.program, &source) else {
         return Ok(1);
-    }
+    };
+    let Some(bytecode) = prepare_or_report::<BytecodeVm>(&parsed.program, &source) else {
+        return Ok(1);
+    };
 
     let iterations = args.iters.max(1);
+    let Some(tree_walker) = time::<TreeWalker>(&tree, iterations, &source) else {
+        return Ok(1);
+    };
+    let Some(virtual_machine) = time::<BytecodeVm>(&bytecode, iterations, &source) else {
+        return Ok(1);
+    };
 
-    // The backends print their own output; a buffer keeps the timings readable.
-    let start = Instant::now();
-    for _ in 0..iterations {
-        let mut interpreter = Interpreter::with_output(Box::new(Buffer::new()));
-        if let Err(error) = interpreter.interpret(&parsed.program) {
-            sources::emit_runtime(&error, &source.map);
-            return Ok(1);
-        }
-    }
-    let tree_walker = start.elapsed();
-
-    let start = Instant::now();
-    for _ in 0..iterations {
-        let mut vm = Vm::with_output(Box::new(Buffer::new()));
-        if let Err(error) = vm.run(&compiled.compiled) {
-            sources::emit_runtime(&error, &source.map);
-            return Ok(1);
-        }
-    }
-    let virtual_machine = start.elapsed();
-
-    let count = f64::from(iterations);
-    let interpreter_ms = millis(tree_walker);
-    let vm_ms = millis(virtual_machine);
-    println!(
-        "tree-walker: {interpreter_ms:.3} ms over {iterations} iterations ({:.3} ms/iteration)",
-        interpreter_ms / count
-    );
-    println!(
-        "vm:          {vm_ms:.3} ms over {iterations} iterations ({:.3} ms/iteration)",
-        vm_ms / count
-    );
+    report::<TreeWalker>(tree_walker, iterations);
+    report::<BytecodeVm>(virtual_machine, iterations);
     Ok(0)
 }
 
-/// Executes with the tree-walking interpreter and prints the final value.
-fn run_interpreter(program: &Program, source: &Source, quiet: bool) -> u8 {
-    let mut interpreter = Interpreter::new();
-    match interpreter.interpret(program) {
+/// Prepares `program` for backend `B`, printing diagnostics on failure.
+fn prepare_or_report<'p, B: Backend>(
+    program: &'p Program,
+    source: &Source,
+) -> Option<B::Prepared<'p>> {
+    match B::prepare(program) {
+        Ok(prepared) => Some(prepared),
+        Err(diagnostics) => {
+            sources::emit(&diagnostics, &source.map);
+            None
+        }
+    }
+}
+
+/// Runs a prepared program on a fresh `B` that prints to stdout, and returns
+/// the exit code.
+fn execute<B: Backend>(prepared: &B::Prepared<'_>, source: &Source, quiet: bool) -> u8 {
+    let mut backend = B::with_output(Box::new(Stdout));
+    match backend.execute(prepared) {
         Ok(value) => {
-            // A script usually ends in a statement, so its value is `nil`;
-            // printing that for every program would just be noise.
-            if !quiet && !matches!(value, pebble_value::Value::Nil) {
-                println!("{value}");
+            if let Some(text) = value
+                && !quiet
+            {
+                println!("{text}");
             }
             0
         }
@@ -168,21 +162,34 @@ fn run_interpreter(program: &Program, source: &Source, quiet: bool) -> u8 {
     }
 }
 
-/// Executes with the bytecode VM and prints the final value.
-fn run_vm(compiled: &Compiled, source: &Source, quiet: bool) -> u8 {
-    let mut vm = Vm::new();
-    match vm.run(compiled) {
-        Ok(value) => {
-            if !quiet && value != pebble_vm::VmValue::Nil {
-                println!("{}", vm.display(value));
-            }
-            0
-        }
-        Err(error) => {
+/// Runs a prepared program `iterations` times on fresh engines and returns the
+/// total time, or `None` after reporting a runtime error.
+///
+/// The backends print their own output; a buffer keeps the timings readable.
+fn time<B: Backend>(
+    prepared: &B::Prepared<'_>,
+    iterations: u32,
+    source: &Source,
+) -> Option<Duration> {
+    let start = Instant::now();
+    for _ in 0..iterations {
+        let mut backend = B::with_output(Box::new(Buffer::new()));
+        if let Err(error) = backend.execute(prepared) {
             sources::emit_runtime(&error, &source.map);
-            1
+            return None;
         }
     }
+    Some(start.elapsed())
+}
+
+/// Prints one `pebble bench` result line.
+fn report<B: Backend>(total: Duration, iterations: u32) {
+    let total = millis(total);
+    let per_iteration = total / f64::from(iterations);
+    println!(
+        "{:<12} {total:.3} ms over {iterations} iterations ({per_iteration:.3} ms/iteration)",
+        format!("{}:", B::NAME)
+    );
 }
 
 /// A duration in milliseconds, as a float.
