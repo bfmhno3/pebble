@@ -1303,25 +1303,27 @@ mod tests {
     fn garbage_collection_reclaims_cycles() {
         let src = "
             fn make() {
-                let f = fn() { return 1; };
-                return f;
+                fn inner() { return inner; }
+                return 1;
             }
-            let a = make();
-            let b = make();
-            a; b;
+            make();
         ";
         let mut sources = pebble_span::SourceMap::new();
         let id = sources.add("<test>", src);
         let parsed = parse(id, src);
         let compiled = pebble_bytecode::compile(&parsed.program);
         let mut vm = Vm::with_output(Box::new(Buffer::new()));
-        vm.set_gc_threshold(1);
+        vm.set_gc_threshold(usize::MAX);
         vm.run(&compiled.compiled).unwrap();
         let before = vm.heap_live();
         vm.collect_garbage();
         let after = vm.heap_live();
-        assert!(after <= before);
-        // Live roots survive the collection.
-        assert!(vm.heap_live() > 0);
+        assert_eq!(
+            before - after,
+            2,
+            "make's call env and `inner` form an unreachable cycle"
+        );
+        vm.collect_garbage();
+        assert_eq!(vm.heap_live(), after);
     }
 }
