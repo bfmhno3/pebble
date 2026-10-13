@@ -4,6 +4,8 @@
 //! but every line gets its own [`pebble_span::SourceMap`]: a line is parsed and
 //! rendered in isolation, which keeps offsets small and diagnostics exact.
 
+use std::str::FromStr;
+
 use anyhow::{Result, anyhow};
 use pebble_ast::{Program, Spanned as _, Stmt, pretty};
 use pebble_interp::Interpreter;
@@ -36,8 +38,12 @@ pub(crate) fn run() -> Result<u8> {
                 }
                 let _ = editor.add_history_entry(line.as_str());
                 if trimmed.starts_with(':') {
-                    if meta_command(trimmed) {
-                        break;
+                    match trimmed.parse::<MetaCommand>() {
+                        Ok(MetaCommand::Quit) => break,
+                        Ok(MetaCommand::Help) => print_help(),
+                        Ok(MetaCommand::Tokens(code)) => show_tokens(&code),
+                        Ok(MetaCommand::Ast(code)) => show_ast(&code),
+                        Err(message) => eprintln!("pebble: {message}"),
                     }
                 } else {
                     eval_line(trimmed, &mut interpreter);
@@ -55,23 +61,38 @@ pub(crate) fn run() -> Result<u8> {
     Ok(0)
 }
 
-/// Handles a `:`-prefixed command. Returns `true` to leave the REPL.
-fn meta_command(line: &str) -> bool {
-    let Some(rest) = line.strip_prefix(':') else {
-        return false;
-    };
-    let (name, argument) = match rest.split_once(char::is_whitespace) {
-        Some((name, argument)) => (name, argument.trim()),
-        None => (rest, ""),
-    };
-    match name {
-        "quit" | "q" => return true,
-        "help" | "h" => print_help(),
-        "tokens" => show_tokens(argument),
-        "ast" => show_ast(argument),
-        other => eprintln!("pebble: unknown command `:{other}`; try :help"),
+/// A `:`-prefixed REPL command.
+#[derive(Debug, PartialEq, Eq)]
+enum MetaCommand {
+    /// Leave the REPL.
+    Quit,
+    /// Show the command list.
+    Help,
+    /// Print the token stream of the argument.
+    Tokens(String),
+    /// Print the syntax tree of the argument.
+    Ast(String),
+}
+
+impl FromStr for MetaCommand {
+    type Err = String;
+
+    fn from_str(line: &str) -> Result<Self, Self::Err> {
+        let Some(rest) = line.strip_prefix(':') else {
+            return Err(format!("`{line}` is not a command"));
+        };
+        let (name, argument) = match rest.split_once(char::is_whitespace) {
+            Some((name, argument)) => (name, argument.trim()),
+            None => (rest, ""),
+        };
+        match name {
+            "quit" | "q" => Ok(Self::Quit),
+            "help" | "h" => Ok(Self::Help),
+            "tokens" => Ok(Self::Tokens(argument.to_owned())),
+            "ast" => Ok(Self::Ast(argument.to_owned())),
+            other => Err(format!("unknown command `:{other}`; try :help")),
+        }
     }
-    false
 }
 
 /// Prints the list of meta commands.
@@ -139,5 +160,31 @@ fn eval_line(line: &str, interpreter: &mut Interpreter) {
     }
     if let Err(error) = interpreter.interpret(&parsed.program) {
         sources::emit_runtime(&error, &source.map);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn quit_has_a_short_form() {
+        assert_eq!(":q".parse(), Ok(MetaCommand::Quit));
+    }
+
+    #[test]
+    fn arguments_are_kept_whole() {
+        assert_eq!(
+            ":tokens 1 + 2".parse(),
+            Ok(MetaCommand::Tokens("1 + 2".to_owned()))
+        );
+    }
+
+    #[test]
+    fn unknown_commands_are_rejected() {
+        assert_eq!(
+            ":nope".parse::<MetaCommand>(),
+            Err("unknown command `:nope`; try :help".to_owned())
+        );
     }
 }
