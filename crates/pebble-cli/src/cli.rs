@@ -11,15 +11,15 @@ use clap::{Args, Parser, Subcommand};
 /// Pebble: a small scripting language and toolchain.
 #[derive(Debug, Parser)]
 #[command(name = "pebble", version)]
-pub struct Cli {
+pub(crate) struct Cli {
     /// The action to perform.
     #[command(subcommand)]
-    pub command: Command,
+    pub(crate) command: Command,
 }
 
 /// Every top-level action the driver understands.
 #[derive(Debug, Subcommand)]
-pub enum Command {
+pub(crate) enum Command {
     /// Execute a source file on the tree-walker or the bytecode VM.
     Run(RunArgs),
     /// Start an interactive read-eval-print loop.
@@ -36,36 +36,36 @@ pub enum Command {
 
 /// A subcommand whose only input is one source file.
 #[derive(Debug, Args)]
-pub struct FileArgs {
+pub(crate) struct FileArgs {
     /// The source file to read.
-    pub file: PathBuf,
+    pub(crate) file: PathBuf,
 }
 
 /// Arguments to `pebble run`.
 #[derive(Debug, Args)]
-pub struct RunArgs {
+pub(crate) struct RunArgs {
     /// The source file to execute.
-    pub file: PathBuf,
+    pub(crate) file: PathBuf,
     /// Execute on the bytecode VM instead of the tree-walking interpreter.
     #[arg(long)]
-    pub vm: bool,
+    pub(crate) vm: bool,
     /// Print the parsed syntax tree before running.
     #[arg(long)]
-    pub ast: bool,
+    pub(crate) ast: bool,
     /// Print the compiled bytecode disassembly before running.
     #[arg(long)]
-    pub dump_bytecode: bool,
+    pub(crate) dump_bytecode: bool,
     /// Do not print the program's final value.
     #[arg(long)]
-    pub quiet: bool,
+    pub(crate) quiet: bool,
 }
 
 /// Arguments to `pebble bench`.
 #[derive(Debug, Args)]
-pub struct BenchArgs {
+pub(crate) struct BenchArgs {
     /// The source file to time.
-    pub file: PathBuf,
+    pub(crate) file: PathBuf,
     /// How many times to run the file on each backend.
     #[arg(long, default_value_t = 5)]
-    pub iters: u32,
+    pub(crate) iters: u32,
 }

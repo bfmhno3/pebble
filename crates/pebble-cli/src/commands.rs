@@ -22,7 +22,7 @@ use crate::sources::{self, Source};
 ///
 /// # Errors
 /// Returns an error only for host-level failures such as an unreadable file.
-pub fn run(args: &RunArgs) -> Result<u8> {
+pub(crate) fn run(args: &RunArgs) -> Result<u8> {
     let source = Source::load(&args.file)?;
     let parsed = parse_program(source.id, source.text());
     if sources::emit(&parsed.diagnostics, &source.map) {
@@ -57,7 +57,7 @@ pub fn run(args: &RunArgs) -> Result<u8> {
 ///
 /// # Errors
 /// Returns an error only for host-level failures such as an unreadable file.
-pub fn tokens(args: &FileArgs) -> Result<u8> {
+pub(crate) fn tokens(args: &FileArgs) -> Result<u8> {
     let source = Source::load(&args.file)?;
     let (tokens, diagnostics) = tokenize(source.id, source.text());
     let failed = sources::emit(&diagnostics, &source.map);
@@ -74,7 +74,7 @@ pub fn tokens(args: &FileArgs) -> Result<u8> {
 ///
 /// # Errors
 /// Returns an error only for host-level failures such as an unreadable file.
-pub fn parse(args: &FileArgs) -> Result<u8> {
+pub(crate) fn parse(args: &FileArgs) -> Result<u8> {
     let source = Source::load(&args.file)?;
     let parsed = parse_program(source.id, source.text());
     let failed = sources::emit(&parsed.diagnostics, &source.map);
@@ -86,7 +86,7 @@ pub fn parse(args: &FileArgs) -> Result<u8> {
 ///
 /// # Errors
 /// Returns an error only for host-level failures such as an unreadable file.
-pub fn check(args: &FileArgs) -> Result<u8> {
+pub(crate) fn check(args: &FileArgs) -> Result<u8> {
     let source = Source::load(&args.file)?;
     let parsed = parse_program(source.id, source.text());
     let mut failed = sources::emit(&parsed.diagnostics, &source.map);
@@ -101,7 +101,7 @@ pub fn check(args: &FileArgs) -> Result<u8> {
 ///
 /// # Errors
 /// Returns an error only for host-level failures such as an unreadable file.
-pub fn bench(args: &BenchArgs) -> Result<u8> {
+pub(crate) fn bench(args: &BenchArgs) -> Result<u8> {
     let source = Source::load(&args.file)?;
     let parsed = parse_program(source.id, source.text());
     if sources::emit(&parsed.diagnostics, &source.map) {

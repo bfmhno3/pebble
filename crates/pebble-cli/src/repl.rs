@@ -21,7 +21,7 @@ const PROMPT: &str = "pebble> ";
 ///
 /// # Errors
 /// Returns an error if the line editor cannot be initialised.
-pub fn run() -> Result<u8> {
+pub(crate) fn run() -> Result<u8> {
     let mut editor =
         DefaultEditor::new().map_err(|error| anyhow!("cannot start the line editor: {error}"))?;
     let mut interpreter = Interpreter::new();
