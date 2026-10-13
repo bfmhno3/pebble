@@ -14,6 +14,7 @@
 //!   alternative, slot indices plus upvalues, is the optimisation a production
 //!   compiler would make.
 
+use std::collections::HashMap;
 use std::fmt;
 use std::rc::Rc;
 
@@ -244,6 +245,21 @@ impl Chunk {
         (self.constants.len() - 1) as u32
     }
 
+    /// Adds a scalar constant, reusing an identical one already in the pool.
+    ///
+    /// Function prototypes are never deduplicated.
+    pub(crate) fn intern(&mut self, constant: Constant) -> u32 {
+        if !matches!(constant, Constant::Function(_))
+            && let Some(position) = self
+                .constants
+                .iter()
+                .position(|existing| existing.same(&constant))
+        {
+            return position as u32;
+        }
+        self.add_constant(constant)
+    }
+
     /// The instructions.
     #[must_use]
     pub fn code(&self) -> &[Opcode] {
@@ -406,6 +422,7 @@ struct LoopCtx {
 struct Compiler {
     chunk: Chunk,
     loops: Vec<LoopCtx>,
+    names: HashMap<String, u32>,
     diagnostics: Vec<Diagnostic>,
 }
 
@@ -414,6 +431,7 @@ impl Compiler {
         Self {
             chunk: Chunk::new(),
             loops: Vec::new(),
+            names: HashMap::new(),
             diagnostics: Vec::new(),
         }
     }
@@ -426,22 +444,12 @@ impl Compiler {
         self.chunk.emit(op, span)
     }
 
-    /// Interns a scalar constant, deduplicating identical ones.
-    fn intern(&mut self, constant: Constant) -> u32 {
-        if !matches!(constant, Constant::Function(_))
-            && let Some(position) = self
-                .chunk
-                .constants
-                .iter()
-                .position(|existing| existing.same(&constant))
-        {
-            return position as u32;
-        }
-        self.chunk.add_constant(constant)
-    }
-
+    /// The constant-pool index of `name`, interned on first use.
     fn name_const(&mut self, name: &str) -> u32 {
-        self.intern(Constant::Str(name.to_string()))
+        *self
+            .names
+            .entry(name.to_owned())
+            .or_insert_with(|| self.chunk.intern(Constant::Str(name.to_owned())))
     }
 
     // --- statements -------------------------------------------------------
@@ -576,8 +584,8 @@ impl Compiler {
         // space), used for the hidden iterator and index.
         let iter_name = self.name_const(" #iter");
         let index_name = self.name_const(" #idx");
-        let zero = self.intern(Constant::Int(0));
-        let one = self.intern(Constant::Int(1));
+        let zero = self.chunk.intern(Constant::Int(0));
+        let one = self.chunk.intern(Constant::Int(1));
         let len_name = self.name_const("len");
 
         self.compile_expr(iter);
@@ -636,15 +644,15 @@ impl Compiler {
                 self.emit(if *value { Opcode::True } else { Opcode::False }, span);
             }
             Expr::Int { value, .. } => {
-                let index = self.intern(Constant::Int(*value));
+                let index = self.chunk.intern(Constant::Int(*value));
                 self.emit(Opcode::Const(index), span);
             }
             Expr::Float { value, .. } => {
-                let index = self.intern(Constant::Float(*value));
+                let index = self.chunk.intern(Constant::Float(*value));
                 self.emit(Opcode::Const(index), span);
             }
             Expr::Str { value, .. } => {
-                let index = self.intern(Constant::Str(value.clone()));
+                let index = self.chunk.intern(Constant::Str(value.clone()));
                 self.emit(Opcode::Const(index), span);
             }
             Expr::Var { name, .. } => {
