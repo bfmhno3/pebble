@@ -6,6 +6,37 @@ All notable changes to Pebble are recorded here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- `pebble-macros`: the `#[differential]` attribute, which turns a function
+  returning a Pebble program into a test comparing both backends.
+- `pebble-bench`: a differential test suite run through `#[differential]`.
+- `pebble-cli`: `pebble check` accepts several files and checks them on
+  scoped threads; the REPL is behind the default `repl` Cargo feature;
+  REPL meta commands parse through `FromStr`.
+- `pebble-nostd`: `BumpAllocator<const N: usize>` and a `bump_global` example
+  that runs the evaluator on a `#[global_allocator]`.
+- `pebble-net`: `FrameError`, a typed error with a `source()` chain.
+- `pebble-value`: `builtin_names()`.
+- `pebble-ast`: `IntoIterator for &Program`.
+- `pebble-span`: `SourceMap` implements `Index<SourceId>`.
+
+### Changed
+
+- `pebble-span`: `SourceMap::file` is replaced by `map[id]`.
+- `pebble-vm`: builtin names come from `pebble_value::builtin_names()`; the
+  `BUILTINS` constant is removed.
+- `pebble-interp`: the call-depth guard is `with_call_depth`, taking an
+  `FnOnce`.
+- `pebble-bytecode`: names are interned through a `HashMap` entry.
+- `pebble-cli`: both engines sit behind one internal `Backend` trait.
+- `pebble-sys`: the opaque arena type carries `PhantomData` markers.
+- `pebble-nostd`: `HEAP_SIZE` is now `DEFAULT_HEAP_SIZE`.
+
+### Fixed
+
+- Intra-doc links that made `cargo doc` fail with `-D warnings`.
+
 ## [0.1.0]
 
 First working release. Pebble is a complete, if small, language.

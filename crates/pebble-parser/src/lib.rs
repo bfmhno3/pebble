@@ -8,7 +8,7 @@
 //! * Errors are values. Every parsing function returns
 //!   `Result<T, Diagnostic>`, and `?` threads failures upward. Nothing panics
 //!   on bad input.
-//! * It **recovers**. When a statement fails, [`Parser::synchronize`] skips to
+//! * It **recovers**. When a statement fails, `Parser::synchronize` skips to
 //!   the next plausible statement boundary, so a single run reports many
 //!   mistakes rather than stopping at the first.
 

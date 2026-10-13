@@ -588,6 +588,7 @@ dependencies = [
  "pebble-bytecode",
  "pebble-diag",
  "pebble-interp",
+ "pebble-macros",
  "pebble-parser",
  "pebble-span",
  "pebble-value",

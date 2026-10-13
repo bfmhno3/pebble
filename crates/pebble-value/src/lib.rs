@@ -14,7 +14,7 @@
 //! * `Weak` is *not* used here on purpose: closures capture their defining
 //!   environment with a strong `Rc`, which means a recursive `fn` stored in the
 //!   environment it captures forms a reference cycle and leaks. That leak is
-//!   exactly the problem the garbage-collected [`pebble_vm`] backend solves.
+//!   exactly the problem the garbage-collected `pebble_vm` backend solves.
 //!
 //! Values are also where operator semantics live, because `+` has to mean
 //! "add two ints" *and* "concatenate two strings" *and* "concatenate two lists".

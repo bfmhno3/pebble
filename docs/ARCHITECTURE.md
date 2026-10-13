@@ -26,7 +26,6 @@ graph LR
     interp --> cli[pebble-cli]
     vm --> cli
     interp --> net[pebble-net]
-    sys[pebble-sys] --> gc
 ```
 
 There are **two independent backends**:
@@ -41,6 +40,12 @@ Both must agree on observable behaviour. Two rules keep them in sync:
    `nil`.
 2. The value of a program (or of a function without an explicit `return`) is the
    value of the final expression statement.
+
+They do not agree on everything. A `let` inside a block gets its own scope in
+the tree-walker (each block has a child environment) but not in the VM (one
+environment per call), and a list containing strings renders them quoted in
+one backend and unquoted in the other. `crates/pebble-bench/tests/differential.rs`
+holds the programs on which the two are known to agree.
 
 ## Crate responsibilities
 

@@ -1,6 +1,6 @@
 //! FFI shims: a small hand-written C library linked into the Pebble runtime.
 //!
-//! The C code lives in `csrc/` and is compiled by `build.rs` with the [`cc`]
+//! The C code lives in `csrc/` and is compiled by `build.rs` with the `cc`
 //! crate into a static library that this crate links. Three things are
 //! demonstrated here:
 //!

@@ -68,18 +68,18 @@ indices.
 | `pebble-diag`     | error types, `Display`/`Error`, rendering, generics over sinks          |
 | `pebble-lexer`    | zero-copy `&str` scanning, lifetimes, `Cow`, `Iterator`                 |
 | `pebble-ast`      | algebraic data types, `Box`, recursive enums, visitor traits            |
-| `pebble-macros`   | `proc-macro` crates, `syn`/`quote`, derive + function-like macros       |
+| `pebble-macros`   | `proc-macro` crates, `syn`/`quote`, derive + function-like + attribute macros |
 | `pebble-parser`   | recursive descent, Pratt parsing, `Result`/`?`, custom errors           |
 | `pebble-value`    | `Rc`/`RefCell`, interior mutability, operator overloading               |
 | `pebble-interp`   | environments, closures, trait objects, control-flow as data             |
 | `pebble-bytecode` | bytecode chunks, opcodes, a disassembler                                |
 | `pebble-gc`       | `unsafe`, raw pointers, `MaybeUninit`, a generic mark-sweep collector   |
 | `pebble-vm`       | stack machine, pattern matching over opcodes, GC roots                  |
-| `pebble-sys`      | `build.rs`, `cc`, `extern "C"`, `repr(C)`, FFI boundaries               |
-| `pebble-nostd`    | `no_std` + `alloc`, a bump allocator, a custom `GlobalAlloc`            |
-| `pebble-net`      | `async`/`await`, Tokio, `spawn_blocking`, `Send`/`Sync`                 |
-| `pebble-cli`      | `clap`, `io`, an interactive REPL                                       |
-| `pebble-bench`    | Criterion benchmarks comparing the two backends                         |
+| `pebble-sys`      | `build.rs`, `cc`, `extern "C"`, `repr(C)`, `PhantomData`, FFI boundaries |
+| `pebble-nostd`    | `no_std` + `alloc`, const generics, a bump `#[global_allocator]`        |
+| `pebble-net`      | `async`/`await`, Tokio, `spawn_blocking`, typed errors with `source()`  |
+| `pebble-cli`      | `clap`, a `Backend` trait with a GAT, scoped threads, Cargo features    |
+| `pebble-bench`    | Criterion benchmarks and `#[differential]` tests over both backends     |
 
 `docs/ARCHITECTURE.md` explains how the pieces fit together and how the two
 backends are kept semantically in sync.
@@ -87,8 +87,9 @@ backends are kept semantically in sync.
 ## Testing and benchmarks
 
 ```bash
-cargo test --workspace
-cargo clippy --workspace --all-targets -- -D warnings
+cargo test --workspace --all-features
+cargo clippy --workspace --all-targets --all-features -- -D warnings
+cargo clippy -p pebble-cli --no-default-features --all-targets -- -D warnings
 cargo fmt --all --check
 cargo bench -p pebble-bench
 ```
