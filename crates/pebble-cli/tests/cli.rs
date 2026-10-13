@@ -109,6 +109,34 @@ fn unknown_subcommands_are_usage_errors() {
 }
 
 #[test]
+fn dump_bytecode_prints_the_listing() {
+    pebble()
+        .args(["run", "--quiet", "--dump-bytecode", "examples/fib.pebble"])
+        .assert()
+        .success()
+        .stdout(
+            predicate::str::contains("== code ==")
+                .and(predicate::str::contains("-- function fib --"))
+                .and(predicate::str::contains("MakeClosure")),
+        );
+}
+
+#[test]
+fn check_reports_compile_errors() {
+    let path = std::env::temp_dir().join(format!("pebble-break-{}.pebble", std::process::id()));
+    std::fs::write(&path, "break;\n").expect("the temp file is writable");
+
+    pebble()
+        .arg("check")
+        .arg(&path)
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("`break` outside a loop"));
+
+    std::fs::remove_file(&path).expect("the temp file is removable");
+}
+
+#[test]
 fn check_reports_only_the_broken_file() {
     let output = pebble_output(&[
         "check",
