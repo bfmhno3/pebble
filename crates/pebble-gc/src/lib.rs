@@ -470,6 +470,8 @@ mod tests {
 
     #[test]
     fn randomised_reachability_matches_sweep() {
+        use std::collections::{BTreeSet, VecDeque};
+
         let mut rng = rand::rng();
         for _ in 0..200 {
             let n = rng.random_range(1..40usize);
@@ -501,20 +503,18 @@ mod tests {
             }
 
             // Expected survivors: everything reachable from the roots.
-            let mut reachable = vec![false; n];
-            let mut stack = roots.clone();
-            while let Some(node) = stack.pop() {
-                if reachable[node] {
-                    continue;
+            let mut reachable = BTreeSet::new();
+            let mut queue: VecDeque<usize> = roots.iter().copied().collect();
+            while let Some(node) = queue.pop_front() {
+                if reachable.insert(node) {
+                    queue.extend(edges[node].iter().copied());
                 }
-                reachable[node] = true;
-                stack.extend_from_slice(&edges[node]);
             }
 
             heap.collect();
 
             let live: Vec<usize> = (0..n).filter(|&i| heap.slots[i].is_some()).collect();
-            let expected: Vec<usize> = (0..n).filter(|&i| reachable[i]).collect();
+            let expected: Vec<usize> = reachable.into_iter().collect(); // already sorted
             assert_eq!(live, expected, "the sweep kept the wrong objects");
             assert_eq!(heap.live_count(), expected.len());
             for &i in &expected {
