@@ -107,3 +107,24 @@ fn check_is_silent_on_a_valid_file() {
 fn unknown_subcommands_are_usage_errors() {
     pebble().arg("frobnicate").assert().code(2);
 }
+
+#[test]
+fn check_reports_only_the_broken_file() {
+    let output = pebble_output(&[
+        "check",
+        "examples/fib.pebble",
+        "examples/errors.pebble",
+        "examples/hello.pebble",
+    ]);
+    assert_eq!(output.status.code(), Some(1));
+    assert!(output.stdout.is_empty(), "check prints nothing to stdout");
+
+    let stderr = String::from_utf8(output.stderr).expect("stderr is UTF-8");
+    assert!(stderr.contains("examples/errors.pebble"), "{stderr}");
+    assert!(!stderr.contains("examples/fib.pebble"), "{stderr}");
+}
+
+#[test]
+fn check_requires_a_file() {
+    pebble().arg("check").assert().code(2);
+}

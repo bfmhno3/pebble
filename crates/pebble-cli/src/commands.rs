@@ -4,6 +4,8 @@
 //! `1` when the input produced diagnostics or failed at runtime. Only host
 //! problems (an unreadable file, say) escape as an [`anyhow::Error`].
 
+use std::path::Path;
+use std::thread;
 use std::time::{Duration, Instant};
 
 use anyhow::Result;
@@ -14,7 +16,7 @@ use pebble_parser::parse as parse_program;
 use pebble_value::{Buffer, Stdout};
 
 use crate::backend::{Backend, BytecodeVm, TreeWalker};
-use crate::cli::{BenchArgs, FileArgs, RunArgs};
+use crate::cli::{BenchArgs, CheckArgs, FileArgs, RunArgs};
 use crate::sources::{self, Source};
 
 /// `pebble run`: parse a file, then execute it on one of the two backends.
@@ -83,19 +85,53 @@ pub(crate) fn parse(args: &FileArgs) -> Result<u8> {
     Ok(if failed { 1 } else { 0 })
 }
 
-/// `pebble check`: lex, parse, and compile, reporting every diagnostic.
+/// The outcome of checking one file: its rendered diagnostics and whether any
+/// of them is an error.
+struct CheckReport {
+    rendered: String,
+    failed: bool,
+}
+
+/// `pebble check`: lex, parse, and compile every file, each on its own thread,
+/// then print the reports in command-line order.
 ///
 /// # Errors
-/// Returns an error only for host-level failures such as an unreadable file.
-pub(crate) fn check(args: &FileArgs) -> Result<u8> {
-    let source = Source::load(&args.file)?;
+/// Returns the first host-level failure (such as an unreadable file), in
+/// command-line order.
+pub(crate) fn check(args: &CheckArgs) -> Result<u8> {
+    let reports: Vec<Result<CheckReport>> = thread::scope(|scope| {
+        let handles: Vec<_> = args
+            .files
+            .iter()
+            .map(|path| scope.spawn(|| check_file(path)))
+            .collect();
+        handles
+            .into_iter()
+            .map(|handle| handle.join().expect("a check thread panicked"))
+            .collect()
+    });
+
+    let mut failed = false;
+    for report in reports {
+        let report = report?;
+        eprint!("{}", report.rendered);
+        failed |= report.failed;
+    }
+    Ok(u8::from(failed))
+}
+
+/// Checks one file. Everything non-`Send` (the compiled chunk holds `Rc`s)
+/// stays inside this function; only the rendered text leaves the thread.
+fn check_file(path: &Path) -> Result<CheckReport> {
+    let source = Source::load(path)?;
     let parsed = parse_program(source.id, source.text());
-    let mut failed = sources::emit(&parsed.diagnostics, &source.map);
-
     let compiled = compile(&parsed.program);
-    failed |= sources::emit(&compiled.diagnostics, &source.map);
 
-    Ok(if failed { 1 } else { 0 })
+    let mut rendered = sources::render(&parsed.diagnostics, &source.map);
+    rendered.push_str(&sources::render(&compiled.diagnostics, &source.map));
+    let failed =
+        sources::has_errors(&parsed.diagnostics) || sources::has_errors(&compiled.diagnostics);
+    Ok(CheckReport { rendered, failed })
 }
 
 /// `pebble bench`: time both backends on the same file.

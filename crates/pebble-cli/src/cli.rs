@@ -28,8 +28,8 @@ pub(crate) enum Command {
     Tokens(FileArgs),
     /// Print the parsed abstract syntax tree of a source file.
     Parse(FileArgs),
-    /// Lex, parse, and compile a source file without running it.
-    Check(FileArgs),
+    /// Lex, parse, and compile source files without running them.
+    Check(CheckArgs),
     /// Time both backends on a source file.
     Bench(BenchArgs),
 }
@@ -39,6 +39,14 @@ pub(crate) enum Command {
 pub(crate) struct FileArgs {
     /// The source file to read.
     pub(crate) file: PathBuf,
+}
+
+/// Arguments to `pebble check`.
+#[derive(Debug, Args)]
+pub(crate) struct CheckArgs {
+    /// The source files to check; each one is checked on its own thread.
+    #[arg(required = true)]
+    pub(crate) files: Vec<PathBuf>,
 }
 
 /// Arguments to `pebble run`.
