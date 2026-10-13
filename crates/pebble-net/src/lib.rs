@@ -194,9 +194,63 @@ fn render_runtime_error(error: &RuntimeError, sources: &SourceMap) -> String {
 // Framing
 // ---------------------------------------------------------------------------
 
+/// Why a frame could not be read or written.
+#[derive(Debug)]
+#[non_exhaustive]
+pub enum FrameError {
+    /// The underlying connection failed.
+    Io(io::Error),
+    /// A frame announced or carried more bytes than the configured maximum.
+    TooLarge {
+        /// The offending length in bytes.
+        length: usize,
+        /// The largest length that is allowed.
+        max: usize,
+    },
+    /// A frame payload that should be text was not valid UTF-8.
+    InvalidUtf8(std::string::FromUtf8Error),
+    /// The peer closed the connection before sending a response.
+    Closed,
+}
+
+impl std::fmt::Display for FrameError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Io(_) => f.write_str("i/o error on the connection"),
+            Self::TooLarge { length, max } => {
+                write!(f, "frame length {length} exceeds maximum frame size {max}")
+            }
+            Self::InvalidUtf8(_) => f.write_str("frame payload is not valid UTF-8"),
+            Self::Closed => f.write_str("peer closed the connection without a response"),
+        }
+    }
+}
+
+impl std::error::Error for FrameError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::Io(error) => Some(error),
+            Self::InvalidUtf8(error) => Some(error),
+            Self::TooLarge { .. } | Self::Closed => None,
+        }
+    }
+}
+
+impl From<io::Error> for FrameError {
+    fn from(error: io::Error) -> Self {
+        Self::Io(error)
+    }
+}
+
+impl From<std::string::FromUtf8Error> for FrameError {
+    fn from(error: std::string::FromUtf8Error) -> Self {
+        Self::InvalidUtf8(error)
+    }
+}
+
 /// Reads one length-prefixed frame. Returns `Ok(None)` on a clean end of
 /// stream before any header byte was read.
-async fn read_frame<R>(reader: &mut R, max_frame: usize) -> io::Result<Option<Vec<u8>>>
+async fn read_frame<R>(reader: &mut R, max_frame: usize) -> Result<Option<Vec<u8>>, FrameError>
 where
     R: AsyncRead + Unpin,
 {
@@ -204,15 +258,15 @@ where
     match reader.read_exact(&mut header).await {
         Ok(_) => {}
         Err(error) if error.kind() == io::ErrorKind::UnexpectedEof => return Ok(None),
-        Err(error) => return Err(error),
+        Err(error) => return Err(error.into()),
     }
 
     let length = u32::from_be_bytes(header) as usize;
     if length > max_frame {
-        return Err(io::Error::new(
-            io::ErrorKind::InvalidData,
-            format!("frame length {length} exceeds maximum frame size {max_frame}"),
-        ));
+        return Err(FrameError::TooLarge {
+            length,
+            max: max_frame,
+        });
     }
 
     let mut payload = vec![0u8; length];
@@ -221,21 +275,20 @@ where
 }
 
 /// Writes one length-prefixed frame.
-async fn write_frame<W>(writer: &mut W, payload: &[u8], max_frame: usize) -> io::Result<()>
+async fn write_frame<W>(writer: &mut W, payload: &[u8], max_frame: usize) -> Result<(), FrameError>
 where
     W: AsyncWrite + Unpin,
 {
     if payload.len() > max_frame {
-        return Err(io::Error::new(
-            io::ErrorKind::InvalidData,
-            format!(
-                "response length {} exceeds maximum frame size {max_frame}",
-                payload.len()
-            ),
-        ));
+        return Err(FrameError::TooLarge {
+            length: payload.len(),
+            max: max_frame,
+        });
     }
-    let length = u32::try_from(payload.len())
-        .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "response too large to frame"))?;
+    let length = u32::try_from(payload.len()).map_err(|_| FrameError::TooLarge {
+        length: payload.len(),
+        max: u32::MAX as usize,
+    })?;
     writer.write_all(&length.to_be_bytes()).await?;
     writer.write_all(payload).await?;
     writer.flush().await?;
@@ -311,13 +364,13 @@ pub async fn serve_listener(
 ///
 /// # Errors
 ///
-/// Returns an error when framing fails (including an oversized frame), the
-/// payload is not UTF-8, or the connection breaks mid-frame.
+/// Returns a [`FrameError`] when framing fails (including an oversized frame),
+/// the payload is not UTF-8, or the connection breaks mid-frame.
 pub async fn handle_connection(
     stream: TcpStream,
     config: ServerConfig,
     stats: Arc<Mutex<Stats>>,
-) -> io::Result<()> {
+) -> Result<(), FrameError> {
     stats.lock().await.connections += 1;
     let (mut reader, mut writer) = stream.into_split();
 
@@ -333,12 +386,9 @@ pub async fn handle_connection(
 
         let program = match String::from_utf8(payload) {
             Ok(program) => program,
-            Err(_) => {
+            Err(error) => {
                 stats.lock().await.errors += 1;
-                return Err(io::Error::new(
-                    io::ErrorKind::InvalidData,
-                    "request payload is not valid UTF-8",
-                ));
+                return Err(error.into());
             }
         };
 
@@ -376,26 +426,16 @@ pub async fn handle_connection(
 /// # Errors
 ///
 /// Returns an error if the connection fails, the response is malformed, or the
-/// server disconnects without replying.
-pub async fn run_client(addr: impl ToSocketAddrs, program: &str) -> io::Result<String> {
+/// server disconnects without replying ([`FrameError::Closed`]).
+pub async fn run_client(addr: impl ToSocketAddrs, program: &str) -> Result<String, FrameError> {
     let mut stream = TcpStream::connect(addr).await?;
     write_frame(&mut stream, program.as_bytes(), DEFAULT_MAX_FRAME).await?;
 
     let payload = read_frame(&mut stream, DEFAULT_MAX_FRAME)
         .await?
-        .ok_or_else(|| {
-            io::Error::new(
-                io::ErrorKind::UnexpectedEof,
-                "server closed the connection without a response",
-            )
-        })?;
+        .ok_or(FrameError::Closed)?;
 
-    String::from_utf8(payload).map_err(|_| {
-        io::Error::new(
-            io::ErrorKind::InvalidData,
-            "server response is not valid UTF-8",
-        )
-    })
+    Ok(String::from_utf8(payload)?)
 }
 
 #[cfg(test)]
@@ -508,5 +548,32 @@ mod tests {
 
         let _ = shutdown_tx.send(());
         server.await.expect("join").expect("serve");
+    }
+
+    #[tokio::test]
+    async fn oversized_header_is_a_typed_error() {
+        let mut reader: &[u8] = &1024u32.to_be_bytes();
+        let error = read_frame(&mut reader, 16).await.unwrap_err();
+        assert!(
+            matches!(
+                error,
+                FrameError::TooLarge {
+                    length: 1024,
+                    max: 16
+                }
+            ),
+            "got {error:?}"
+        );
+        assert_eq!(
+            error.to_string(),
+            "frame length 1024 exceeds maximum frame size 16"
+        );
+    }
+
+    #[test]
+    fn invalid_utf8_keeps_its_source() {
+        let error = FrameError::from(String::from_utf8(vec![0xff]).unwrap_err());
+        assert_eq!(error.to_string(), "frame payload is not valid UTF-8");
+        assert!(std::error::Error::source(&error).is_some());
     }
 }
