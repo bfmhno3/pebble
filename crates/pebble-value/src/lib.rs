@@ -893,9 +893,9 @@ fn builtin_float(_: &mut dyn Output, span: Span, args: &[Value]) -> Result<Value
 }
 
 fn builtin_range(_: &mut dyn Output, span: Span, args: &[Value]) -> Result<Value, RuntimeError> {
-    let (start, end) = match args.len() {
-        1 => (0, int_arg(&args[0], span)?),
-        2 => (int_arg(&args[0], span)?, int_arg(&args[1], span)?),
+    let (start, end) = match args {
+        [end] => (0, int_arg(end, span)?),
+        [start, end] => (int_arg(start, span)?, int_arg(end, span)?),
         _ => unreachable!("arity checked by caller"),
     };
     let items: Vec<Value> = (start..end).map(Value::Int).collect();
@@ -1023,6 +1023,11 @@ pub fn builtin(name: &str) -> Option<&'static NativeFunction> {
     BUILTINS.iter().find(|function| function.name == name)
 }
 
+/// The names of every builtin, in table order.
+pub fn builtin_names() -> impl Iterator<Item = &'static str> {
+    BUILTINS.iter().map(|function| function.name)
+}
+
 /// Calls a native function with a runtime arity check.
 pub fn call_native(
     function: &'static NativeFunction,
@@ -1122,6 +1127,17 @@ mod tests {
         let other = Env::child(Rc::clone(&global));
         assert!(other.borrow_mut().assign("x", Value::Int(9)));
         assert_eq!(global.borrow().get("x").unwrap(), Value::Int(9));
+    }
+
+    #[test]
+    fn builtin_names_follow_the_table() {
+        assert_eq!(
+            builtin_names().collect::<Vec<_>>(),
+            [
+                "print", "len", "type", "str", "int", "float", "range", "push", "keys", "clock",
+                "assert"
+            ]
+        );
     }
 
     #[test]
