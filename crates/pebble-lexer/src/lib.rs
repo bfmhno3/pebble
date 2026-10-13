@@ -402,7 +402,7 @@ impl<'src> Lexer<'src> {
                 Ok(kind) => kind,
                 Err(diagnostic) => return Some(Err(diagnostic)),
             },
-            ch if ch.is_ascii_digit() => self.lex_number(start),
+            '0'..='9' => self.lex_number(start),
             ch if ch == '_' || ch.is_alphabetic() => self.lex_identifier(start),
             other => {
                 return Some(Err(Diagnostic::error(format!(
@@ -422,13 +422,15 @@ impl<'src> Lexer<'src> {
     fn lex_number(&mut self, start: usize) -> TokenKind<'src> {
         let mut is_float = false;
         while let Some(ch) = self.peek() {
-            if ch.is_ascii_digit() || ch == '_' {
-                self.bump();
-            } else if ch == '.' && self.peek_second().is_some_and(|c| c.is_ascii_digit()) {
-                is_float = true;
-                self.bump();
-            } else {
-                break;
+            match ch {
+                '0'..='9' | '_' => {
+                    self.bump();
+                }
+                '.' if self.peek_second().is_some_and(|c| c.is_ascii_digit()) => {
+                    is_float = true;
+                    self.bump();
+                }
+                _ => break,
             }
         }
         let text = &self.src[start..self.pos];
