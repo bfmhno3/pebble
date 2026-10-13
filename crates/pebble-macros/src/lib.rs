@@ -4,18 +4,20 @@
 //! compile time, in the compiler's process, and speak in tokens. Three flavours
 //! live here:
 //!
-//! * [`macro@Spanned`] — a **derive** macro that writes the boring
+//! * [`macro@Spanned`] - a **derive** macro that writes the boring
 //!   `impl pebble_span::Spanned` for AST nodes.
-//! * [`opcode_set`] — a **function-like** macro that turns a declarative list of
+//! * [`opcode_set`] - a **function-like** macro that turns a declarative list of
 //!   opcodes into an enum plus a `name()` table.
+//! * [`differential`] - an **attribute** macro that turns a function returning a
+//!   Pebble program into a test comparing both backends.
 //!
-//! (The third flavour, a **declarative** `macro_rules!`, lives next to the code
+//! (A fourth, **declarative** kind, `macro_rules!`, lives next to the code
 //! that uses it in `pebble-bytecode`.)
 
 use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
-use syn::{Data, DeriveInput, Fields, ItemEnum, parse_macro_input};
+use syn::{Data, DeriveInput, Fields, ItemEnum, ItemFn, parse_macro_input};
 
 /// Derives [`pebble_span::Spanned`](https://docs.rs/pebble-span).
 ///
@@ -161,6 +163,62 @@ fn expand_opcodes(item: &ItemEnum) -> syn::Result<TokenStream2> {
                     #(#arms),*
                 }
             }
+        }
+    })
+}
+
+/// Turns a function that returns a Pebble program into a test that runs it on both backends and compares the rendered results.
+///
+/// ```ignore
+/// #[differential]
+/// fn sums() -> &'static str {
+///     "1 + 2;"
+/// }
+/// ```
+///
+/// expands to the function itself plus a `#[test] fn sums_backends_agree()`
+/// that feeds the program to `pebble_bench::run_interp` and
+/// `pebble_bench::run_vm` and asserts the two renderings are equal.
+#[proc_macro_attribute]
+pub fn differential(attr: TokenStream, item: TokenStream) -> TokenStream {
+    let attr = TokenStream2::from(attr);
+    let function = parse_macro_input!(item as ItemFn);
+    match expand_differential(&attr, &function) {
+        Ok(tokens) => tokens.into(),
+        Err(error) => error.to_compile_error().into(),
+    }
+}
+
+fn expand_differential(attr: &TokenStream2, function: &ItemFn) -> syn::Result<TokenStream2> {
+    if !attr.is_empty() {
+        return Err(syn::Error::new_spanned(
+            attr,
+            "`#[differential]` takes no arguments",
+        ));
+    }
+    if !function.sig.inputs.is_empty() {
+        return Err(syn::Error::new_spanned(
+            &function.sig.inputs,
+            "a `#[differential]` program takes no parameters",
+        ));
+    }
+
+    let name = &function.sig.ident;
+    let test_name = quote::format_ident!("{}_backends_agree", name);
+    let label = name.to_string();
+
+    Ok(quote! {
+        #function
+
+        #[test]
+        fn #test_name() {
+            let src = #name();
+            assert_eq!(
+                ::pebble_bench::run_interp(src),
+                ::pebble_bench::run_vm(src),
+                "backends disagree on `{}`",
+                #label
+            );
         }
     })
 }
