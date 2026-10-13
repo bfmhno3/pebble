@@ -39,6 +39,15 @@ impl Program {
     }
 }
 
+impl<'a> IntoIterator for &'a Program {
+    type Item = &'a Stmt;
+    type IntoIter = std::slice::Iter<'a, Stmt>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.stmts.iter()
+    }
+}
+
 /// An identifier: its name plus where it appeared.
 #[derive(Clone, Debug, PartialEq, Spanned)]
 pub struct Ident {
@@ -250,7 +259,7 @@ pub trait Visit {
 
 /// Recursively visits every statement of a program.
 pub fn walk_program<V: Visit + ?Sized>(visitor: &mut V, program: &Program) {
-    for stmt in &program.stmts {
+    for stmt in program {
         visitor.visit_stmt(stmt);
     }
 }
