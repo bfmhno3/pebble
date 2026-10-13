@@ -536,6 +536,7 @@ mod tests {
     use pebble_parser::parse;
     use pebble_span::SourceId;
     use pebble_value::Buffer;
+    use std::rc::Weak;
 
     fn run(src: &str) -> Result<Value, RuntimeError> {
         let mut interpreter = Interpreter::with_output(Box::new(Buffer::new()));
@@ -694,5 +695,32 @@ mod tests {
     fn type_errors_propagate_from_operators() {
         let error = run("1 + \"two\";").unwrap_err();
         assert!(error.message().contains("cannot apply `+`"));
+    }
+
+    /// Any function value stored in the environment it captured forms an `Rc`
+    /// cycle (not only recursive ones): the globals own `fact`, and `fact`
+    /// owns the globals it closed over.
+    #[test]
+    fn top_level_functions_keep_globals_alive() {
+        let src = "fn fact(n) { if n < 2 { return 1; } return n * fact(n - 1); } fact(5);";
+        let mut interpreter = Interpreter::with_output(Box::new(Buffer::new()));
+        let result = parse(SourceId(0), src);
+        interpreter.interpret(&result.program).unwrap();
+        let globals: Weak<RefCell<Env>> = Rc::downgrade(&interpreter.globals());
+        drop(interpreter);
+        assert!(
+            globals.upgrade().is_some(),
+            "globals hold `fact`, `fact` holds globals: the cycle leaks"
+        );
+    }
+
+    #[test]
+    fn globals_without_functions_are_freed() {
+        let mut interpreter = Interpreter::with_output(Box::new(Buffer::new()));
+        let result = parse(SourceId(0), "let x = 1 + 2; x;");
+        interpreter.interpret(&result.program).unwrap();
+        let globals: Weak<RefCell<Env>> = Rc::downgrade(&interpreter.globals());
+        drop(interpreter);
+        assert!(globals.upgrade().is_none());
     }
 }
