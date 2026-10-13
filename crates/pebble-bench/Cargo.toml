@@ -23,6 +23,7 @@ pebble-vm.workspace = true
 
 [dev-dependencies]
 criterion.workspace = true
+pebble-macros.workspace = true
 
 [[bench]]
 name = "backends"
