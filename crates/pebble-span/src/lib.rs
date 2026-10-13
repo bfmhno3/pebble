@@ -29,7 +29,7 @@ impl fmt::Debug for SourceId {
 
 /// A half-open byte range `[start, end)` inside a single source file.
 ///
-/// `Span` is `Copy`: it is four small integers, so passing it around is free
+/// `Span` is `Copy`: it is three small integers, so passing it around is free
 /// and never moves any source text.
 #[derive(Copy, Clone, PartialEq, Eq, Hash)]
 pub struct Span {
