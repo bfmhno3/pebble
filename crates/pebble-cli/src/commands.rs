@@ -62,7 +62,7 @@ pub fn tokens(args: &FileArgs) -> Result<u8> {
     let (tokens, diagnostics) = tokenize(source.id, source.text());
     let failed = sources::emit(&diagnostics, &source.map);
 
-    let file = source.map.file(source.id);
+    let file = &source.map[source.id];
     for token in &tokens {
         let position = file.position(token.span.start);
         println!("{}:{} {}", position.line, position.column, token.kind);

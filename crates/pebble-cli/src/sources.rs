@@ -41,7 +41,7 @@ impl Source {
     /// The registered text.
     #[must_use]
     pub fn text(&self) -> &str {
-        self.map.file(self.id).text()
+        self.map[self.id].text()
     }
 }
 

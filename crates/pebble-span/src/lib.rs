@@ -267,15 +267,6 @@ impl SourceMap {
         id
     }
 
-    /// Looks up a file by id, panicking on an unknown id.
-    ///
-    /// Ids only ever come from this map, so a bad id is a bug in the compiler,
-    /// not something the user did.
-    #[must_use]
-    pub fn file(&self, id: SourceId) -> &SourceFile {
-        &self.files[id.0 as usize]
-    }
-
     /// Looks up a file by id, returning `None` for an unknown id.
     #[must_use]
     pub fn get(&self, id: SourceId) -> Option<&SourceFile> {
@@ -292,6 +283,22 @@ impl SourceMap {
     #[must_use]
     pub fn is_empty(&self) -> bool {
         self.files.is_empty()
+    }
+}
+
+impl core::ops::Index<SourceId> for SourceMap {
+    type Output = SourceFile;
+
+    /// Looks up a file by id, panicking on an unknown id.
+    ///
+    /// Ids only ever come from this map, so a bad id is a bug in the compiler,
+    /// not something the user did. Use [`SourceMap::get`] for a fallible lookup.
+    ///
+    /// # Panics
+    ///
+    /// Panics when `id` did not come from this map.
+    fn index(&self, id: SourceId) -> &SourceFile {
+        &self.files[id.0 as usize]
     }
 }
 
@@ -356,6 +363,6 @@ mod tests {
         let second = map.add("b.pebble", "");
         assert_eq!(first, SourceId(0));
         assert_eq!(second, SourceId(1));
-        assert_eq!(map.file(second).name(), "b.pebble");
+        assert_eq!(map[second].name(), "b.pebble");
     }
 }
