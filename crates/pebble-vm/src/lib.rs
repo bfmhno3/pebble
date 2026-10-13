@@ -111,11 +111,6 @@ struct Frame {
     ip: usize,
 }
 
-/// The builtin functions the VM knows by name.
-pub const BUILTINS: &[&str] = &[
-    "print", "len", "type", "str", "int", "float", "range", "push", "keys", "clock", "assert",
-];
-
 /// The virtual machine.
 pub struct Vm {
     heap: Heap<VmObject>,
@@ -148,10 +143,10 @@ impl Vm {
             parent: None,
             slots: Vec::new(),
         });
-        for name in BUILTINS {
+        for name in pebble_value::builtin_names() {
             let native = heap.alloc(VmObject::Native(name));
             if let VmObject::Env { slots, .. } = heap.get_mut(globals) {
-                slots.push(((*name).to_string(), VmValue::Ref(native)));
+                slots.push((name.to_string(), VmValue::Ref(native)));
             }
         }
         Self {
