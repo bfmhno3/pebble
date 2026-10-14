@@ -1,0 +1,13 @@
+diff --git a/crates/pebble-lexer/src/lib.rs b/crates/pebble-lexer/src/lib.rs
+index 5a9e651..a5a8e96 100644
+--- a/crates/pebble-lexer/src/lib.rs
++++ b/crates/pebble-lexer/src/lib.rs
+@@ -510,7 +510,7 @@ impl<'src> Iterator for Lexer<'src> {
+ /// Never fails, so callers can render every diagnostic before deciding what to
+ /// do with the (possibly partial) token stream.
+ #[must_use]
+-pub fn tokenize(source: SourceId, src: &str) -> (Vec<Token<'_>>, Vec<Diagnostic>) {
++pub fn tokenize(source: SourceId, src: &str) -> (Vec<Token>, Vec<Diagnostic>) {
+     let mut tokens = Vec::new();
+     let mut diagnostics = Vec::new();
+     let mut lexer = Lexer::new(source, src);

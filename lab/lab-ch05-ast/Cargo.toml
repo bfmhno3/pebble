@@ -1,0 +1,10 @@
+[package]
+name = "lab-ch05-ast"
+version = "0.1.0"
+edition = "2024"
+
+[workspace]
+
+[dependencies]
+pebble-ast = { path = "../../crates/pebble-ast" }
+pebble-span = { path = "../../crates/pebble-span" }

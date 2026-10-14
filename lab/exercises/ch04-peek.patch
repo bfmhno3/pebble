@@ -1,0 +1,65 @@
+diff --git a/crates/pebble-lexer/src/lib.rs b/crates/pebble-lexer/src/lib.rs
+index 5a9e651..1a2a522 100644
+--- a/crates/pebble-lexer/src/lib.rs
++++ b/crates/pebble-lexer/src/lib.rs
+@@ -263,13 +263,13 @@ impl<'src> Lexer<'src> {
+     fn peek(&self) -> Option<char> {
+         self.rest().chars().next()
+     }
+-
+-    fn peek_second(&self) -> Option<char> {
+-        let mut chars = self.rest().chars();
+-        chars.next();
+-        chars.next()
++    /// The byte after the first character. Every caller has just matched an ASCII
++    /// first character, so this is also the second character when it is ASCII.
++    fn peek_second_byte(&self) -> Option<u8> {
++        self.rest().as_bytes().get(1).copied()
+     }
+ 
++
+     fn bump(&mut self) -> Option<char> {
+         let ch = self.peek()?;
+         self.pos += ch.len_utf8();
+@@ -287,7 +287,7 @@ impl<'src> Lexer<'src> {
+                 Some(ch) if ch.is_whitespace() => {
+                     self.bump();
+                 }
+-                Some('/') if self.peek_second() == Some('/') => {
++                Some('/') if self.peek_second_byte() == Some(b'/') => {
+                     while let Some(ch) = self.peek() {
+                         if ch == '\n' {
+                             break;
+@@ -295,7 +295,7 @@ impl<'src> Lexer<'src> {
+                         self.bump();
+                     }
+                 }
+-                Some('/') if self.peek_second() == Some('*') => {
++                Some('/') if self.peek_second_byte() == Some(b'*') => {
+                     let start = self.pos;
+                     self.bump();
+                     self.bump();
+@@ -309,12 +309,12 @@ impl<'src> Lexer<'src> {
+                                         .with_span(self.span_from(start)),
+                                 );
+                             }
+-                            Some('/') if self.peek_second() == Some('*') => {
++                            Some('/') if self.peek_second_byte() == Some(b'*') => {
+                                 self.bump();
+                                 self.bump();
+                                 depth += 1;
+                             }
+-                            Some('*') if self.peek_second() == Some('/') => {
++                            Some('*') if self.peek_second_byte() == Some(b'/') => {
+                                 self.bump();
+                                 self.bump();
+                                 depth -= 1;
+@@ -426,7 +426,7 @@ impl<'src> Lexer<'src> {
+                 '0'..='9' | '_' => {
+                     self.bump();
+                 }
+-                '.' if self.peek_second().is_some_and(|c| c.is_ascii_digit()) => {
++                '.' if self.peek_second_byte().is_some_and(|b| b.is_ascii_digit()) => {
+                     is_float = true;
+                     self.bump();
+                 }

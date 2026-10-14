@@ -1,0 +1,9 @@
+[package]
+name = "lab-ch11-gc"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+pebble-gc = { path = "../../crates/pebble-gc" }
+
+[workspace]

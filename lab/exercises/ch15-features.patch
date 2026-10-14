@@ -1,0 +1,20 @@
+diff --git a/crates/pebble-cli/tests/cli.rs b/crates/pebble-cli/tests/cli.rs
+index ed46901..0bd07ca 100644
+--- a/crates/pebble-cli/tests/cli.rs
++++ b/crates/pebble-cli/tests/cli.rs
+@@ -156,3 +156,15 @@ fn check_reports_only_the_broken_file() {
+ fn check_requires_a_file() {
+     pebble().arg("check").assert().code(2);
+ }
++
++#[cfg(feature = "repl")]
++#[test]
++fn the_repl_subcommand_exists_when_the_feature_is_on() {
++    pebble().args(["repl", "--help"]).assert().success();
++}
++
++#[cfg(not(feature = "repl"))]
++#[test]
++fn the_repl_subcommand_is_gone_when_the_feature_is_off() {
++    pebble().arg("repl").assert().code(2);
++}

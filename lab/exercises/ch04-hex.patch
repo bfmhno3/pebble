@@ -1,0 +1,65 @@
+diff --git a/crates/pebble-lexer/src/lib.rs b/crates/pebble-lexer/src/lib.rs
+index 5a9e651..d3b9aff 100644
+--- a/crates/pebble-lexer/src/lib.rs
++++ b/crates/pebble-lexer/src/lib.rs
+@@ -402,6 +402,10 @@ impl<'src> Lexer<'src> {
+                 Ok(kind) => kind,
+                 Err(diagnostic) => return Some(Err(diagnostic)),
+             },
++            '0' if matches!(self.peek(), Some('x' | 'X')) => match self.lex_hex(start) {
++                Ok(kind) => kind,
++                Err(diagnostic) => return Some(Err(diagnostic)),
++            },
+             '0'..='9' => self.lex_number(start),
+             ch if ch == '_' || ch.is_alphabetic() => self.lex_identifier(start),
+             other => {
+@@ -419,6 +423,29 @@ impl<'src> Lexer<'src> {
+         }))
+     }
+ 
++    fn lex_hex(&mut self, start: usize) -> Result<TokenKind<'src>, Diagnostic> {
++        self.bump(); // the `x`
++        let digits_start = self.pos;
++        while let Some(ch) = self.peek() {
++            if ch.is_ascii_hexdigit() || ch == '_' {
++                self.bump();
++            } else {
++                break;
++            }
++        }
++        let digits: String = self.src[digits_start..self.pos]
++            .chars()
++            .filter(|&c| c != '_')
++            .collect();
++        i64::from_str_radix(&digits, 16)
++            .map(TokenKind::Int)
++            .map_err(|error| {
++                Diagnostic::error(format!("invalid hexadecimal literal: {error}"))
++                    .with_code("E0004")
++                    .with_span(self.span_from(start))
++            })
++    }
++
+     fn lex_number(&mut self, start: usize) -> TokenKind<'src> {
+         let mut is_float = false;
+         while let Some(ch) = self.peek() {
+@@ -708,4 +735,19 @@ mod tests {
+         assert_eq!(collected.len(), 2); // Int(1), Eof
+         assert_eq!(lexer.next(), None);
+     }
++
++    #[test]
++    fn hex_literals() {
++        assert_eq!(
++            kinds("0xff 0X1_0 0"),
++            vec![TokenKind::Int(255), TokenKind::Int(16), TokenKind::Int(0), TokenKind::Eof]
++        );
++    }
++
++    #[test]
++    fn empty_hex_literal_is_an_error() {
++        let (_, diagnostics) = tokenize(SourceId(0), "0x;");
++        assert_eq!(diagnostics.len(), 1);
++        assert_eq!(diagnostics[0].code.as_deref(), Some("E0004"));
++    }
+ }

@@ -1,0 +1,9 @@
+[package]
+name = "lab-ch13-sys"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+pebble-sys = { path = "../../crates/pebble-sys" }
+
+[workspace]

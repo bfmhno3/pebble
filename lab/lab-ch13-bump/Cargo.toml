@@ -1,0 +1,11 @@
+[package]
+name = "lab-ch13-bump"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+pebble-nostd = { path = "../../crates/pebble-nostd" }
+pebble-lexer = { path = "../../crates/pebble-lexer" }
+pebble-span = { path = "../../crates/pebble-span" }
+
+[workspace]

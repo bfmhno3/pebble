@@ -1,0 +1,16 @@
+[package]
+name = "lab-ch04-stages"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+pebble-span = { path = "../../crates/pebble-span" }
+pebble-diag = { path = "../../crates/pebble-diag" }
+
+[lints.rust]
+rust_2018_idioms = "warn"
+
+[lints.clippy]
+all = "warn"
+
+[workspace]

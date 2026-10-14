@@ -1,0 +1,13 @@
+[package]
+name = "lab-ch14-tokio"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+tokio = { version = "1", features = ["rt-multi-thread", "net", "io-util", "macros", "sync", "time", "signal"] }
+pebble-interp = { path = "../../crates/pebble-interp" }
+pebble-net = { path = "../../crates/pebble-net" }
+thiserror = "2"
+anyhow = "1"
+
+[workspace]

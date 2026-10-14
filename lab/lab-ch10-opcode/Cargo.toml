@@ -1,0 +1,10 @@
+[package]
+name = "lab-ch10-opcode"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+pebble-macros = { path = "../../crates/pebble-macros" }
+pebble-span = { path = "../../crates/pebble-span" }
+
+[workspace]

@@ -22,3 +22,6 @@ result-*
 
 # Local scratch
 /tmp/
+
+# Tutorial lab crates (each has its own workspace and target dir)
+/lab/**/target

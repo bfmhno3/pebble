@@ -1,0 +1,9 @@
+[package]
+name = "lab-ch07-anyhow"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = "1"
+
+[workspace]

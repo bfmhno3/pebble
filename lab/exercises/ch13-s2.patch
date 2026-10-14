@@ -1,0 +1,104 @@
+diff --git a/crates/pebble-nostd/src/bump.rs b/crates/pebble-nostd/src/bump.rs
+index 369bb1e..5b81976 100644
+--- a/crates/pebble-nostd/src/bump.rs
++++ b/crates/pebble-nostd/src/bump.rs
+@@ -79,6 +79,11 @@ impl<const N: usize> BumpAllocator<N> {
+         state.used.load(Ordering::Relaxed)
+     }
+ 
++    /// Makes the whole arena free again. Needs `&mut self`: proof that nobody else can be allocating.
++    pub fn reset(&mut self) {
++        *self.state.get_mut().used.get_mut() = 0;
++    }
++
+     /// The size in bytes of the arena: the const parameter `N`.
+     #[must_use]
+     pub const fn capacity(&self) -> usize {
+@@ -211,3 +216,20 @@ mod tests {
+         assert_eq!(default.capacity(), DEFAULT_HEAP_SIZE);
+     }
+ }
++
++#[cfg(test)]
++mod reset_tests {
++    use super::BumpAllocator;
++    use core::alloc::{GlobalAlloc, Layout};
++
++    #[test]
++    fn reset_frees_everything() {
++        let mut owned: BumpAllocator<64> = BumpAllocator::new();
++        // SAFETY: the layout is valid; the pointer is only checked for null.
++        assert!(!unsafe { owned.alloc(Layout::new::<u64>()) }.is_null());
++        assert_eq!(owned.bytes_used(), 8);
++        owned.reset();
++        assert_eq!(owned.bytes_used(), 0);
++    }
++
++}
+diff --git a/crates/pebble-sys/csrc/include/pebble_shim.h b/crates/pebble-sys/csrc/include/pebble_shim.h
+index 13fa3c5..7be177c 100644
+--- a/crates/pebble-sys/csrc/include/pebble_shim.h
++++ b/crates/pebble-sys/csrc/include/pebble_shim.h
+@@ -55,6 +55,9 @@ size_t pebble_arena_used(const PebbleArena *arena);
+ /* Total number of bytes the arena can hand out. Returns 0 for a NULL arena. */
+ size_t pebble_arena_capacity(const PebbleArena *arena);
+ 
++/* Bytes still unused, ignoring alignment padding. Returns 0 for a NULL arena. */
++size_t pebble_arena_remaining(const PebbleArena *arena);
++
+ /* Rewinds the arena so all of its capacity becomes available again.
+  *
+  * Every pointer previously returned by `pebble_arena_alloc` is invalidated by
+diff --git a/crates/pebble-sys/csrc/pebble_shim.c b/crates/pebble-sys/csrc/pebble_shim.c
+index cb0af5c..af27260 100644
+--- a/crates/pebble-sys/csrc/pebble_shim.c
++++ b/crates/pebble-sys/csrc/pebble_shim.c
+@@ -124,3 +124,7 @@ int64_t pebble_fold(int64_t init, int64_t lo, int64_t hi, pebble_fold_fn cb, voi
+     }
+     return acc;
+ }
++
++size_t pebble_arena_remaining(const PebbleArena *arena) {
++    return arena == NULL ? 0 : arena->capacity - arena->used;
++}
+diff --git a/crates/pebble-sys/src/lib.rs b/crates/pebble-sys/src/lib.rs
+index e31d8b6..cad6326 100644
+--- a/crates/pebble-sys/src/lib.rs
++++ b/crates/pebble-sys/src/lib.rs
+@@ -70,6 +70,7 @@ unsafe extern "C" {
+     fn pebble_arena_alloc(arena: *mut PebbleArena, len: usize) -> *mut c_void;
+     fn pebble_arena_used(arena: *const PebbleArena) -> usize;
+     fn pebble_arena_capacity(arena: *const PebbleArena) -> usize;
++    fn pebble_arena_remaining(arena: *const PebbleArena) -> usize;
+     /// Invalidates every pointer the arena has handed out.
+     fn pebble_arena_reset(arena: *mut PebbleArena);
+     /// Frees the arena and its backing storage.
+@@ -159,6 +160,13 @@ impl Arena {
+         unsafe { pebble_arena_capacity(self.ptr.as_ptr()) }
+     }
+ 
++    /// Bytes still unused, ignoring alignment padding.
++    #[must_use]
++    pub fn remaining(&self) -> usize {
++        // SAFETY: `self.ptr` is a live arena and the C function only reads it.
++        unsafe { pebble_arena_remaining(self.ptr.as_ptr()) }
++    }
++
+     /// Rewinds the arena, making all of its capacity available again.
+     ///
+     /// Every slice previously returned by [`Arena::alloc`] is invalidated, which
+@@ -339,6 +347,14 @@ mod tests {
+         );
+     }
+ 
++    #[test]
++    fn remaining_plus_used_is_capacity() {
++        let mut arena = Arena::with_capacity(64).expect("arena creation failed");
++        assert_eq!(arena.remaining(), 64);
++        let _ = arena.alloc(10);
++        assert_eq!(arena.remaining() + arena.used(), arena.capacity());
++    }
++
+     #[test]
+     fn arena_exhaustion_returns_none() {
+         let mut arena = Arena::with_capacity(16).expect("arena creation failed");

@@ -1,0 +1,40 @@
+diff --git a/crates/pebble-sys/examples/overlap.rs b/crates/pebble-sys/examples/overlap.rs
+new file mode 100644
+index 0000000..3887eb4
+--- /dev/null
++++ b/crates/pebble-sys/examples/overlap.rs
+@@ -0,0 +1,12 @@
++use pebble_sys::Arena;
++
++fn main() {
++    let arena = Arena::with_capacity(64).expect("no memory");
++    let a = arena.alloc(8).expect("full");
++    arena.reset();
++    let b = arena.alloc(8).expect("full");
++    a[0] = 1;
++    b[0] = 2;
++    println!("a and b start at the same address: {}", a.as_ptr() == b.as_ptr());
++    println!("a[0] = {}", a[0]);
++}
+diff --git a/crates/pebble-sys/src/lib.rs b/crates/pebble-sys/src/lib.rs
+index e31d8b6..8a25018 100644
+--- a/crates/pebble-sys/src/lib.rs
++++ b/crates/pebble-sys/src/lib.rs
+@@ -133,7 +133,7 @@ impl Arena {
+     /// Returns `None` when the remaining capacity cannot satisfy the request
+     /// (including any request on a zero-capacity arena).
+     #[must_use]
+-    pub fn alloc(&mut self, len: usize) -> Option<&mut [u8]> {
++    pub fn alloc(&self, len: usize) -> Option<&mut [u8]> {
+         // SAFETY: `self.ptr` is a live arena owned by `self`, and the C function
+         // neither retains the arena nor frees it.
+         let raw = unsafe { pebble_arena_alloc(self.ptr.as_ptr(), len) };
+@@ -163,7 +163,7 @@ impl Arena {
+     ///
+     /// Every slice previously returned by [`Arena::alloc`] is invalidated, which
+     /// the exclusive `&mut self` borrow already enforces.
+-    pub fn reset(&mut self) {
++    pub fn reset(&self) {
+         // SAFETY: `self.ptr` is a live arena. The C function only updates the
+         // bump offset; `&mut self` guarantees no outstanding slice.
+         unsafe { pebble_arena_reset(self.ptr.as_ptr()) };

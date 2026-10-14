@@ -1,0 +1,19 @@
+[package]
+name = "lab-ch06-derive"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+proc-macro2 = "1"
+pebble-span = { path = "../../crates/pebble-span" }
+lab-macros = { path = "lab-macros" }
+lab-macros-debug = { path = "lab-macros-debug" }
+lab-macros-nostar = { path = "lab-macros-nostar" }
+lab-macros-attr = { path = "lab-macros-attr" }
+lab-macros-nocomma = { path = "lab-macros-nocomma" }
+lab-macros-step = { path = "lab-macros-step" }
+lab-macros-rel = { path = "lab-macros-rel" }
+lab-macros-v2 = { path = "lab-macros-v2" }
+lab-macros-panic = { path = "lab-macros-panic" }
+
+[workspace]

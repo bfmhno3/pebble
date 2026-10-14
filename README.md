@@ -84,6 +84,10 @@ indices.
 `docs/ARCHITECTURE.md` explains how the pieces fit together and how the two
 backends are kept semantically in sync.
 
+`lab/` holds the small experiments (crates, compile-fail demos, patches) that
+the tutorial series "用 Pebble 从零学 Rust" asks you to run; see
+[`lab/README.md`](lab/README.md). It is not part of the workspace.
+
 ## Testing and benchmarks
 
 ```bash

@@ -1,0 +1,10 @@
+[package]
+name = "lab-ch03-ex"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+pebble-span = { path = "../../crates/pebble-span" }
+pebble-diag = { path = "../../crates/pebble-diag" }
+
+[workspace]
